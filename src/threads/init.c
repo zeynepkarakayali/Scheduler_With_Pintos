@@ -38,6 +38,13 @@
 #include "filesys/fsutil.h"
 #endif
 
+static void hello_world() {
+    printf("Merhabalar dunyaa!\n");
+}
+
+
+
+
 /* Page directory with kernel mappings only. */
 uint32_t *init_page_dir;
 
@@ -316,9 +323,14 @@ run_actions (char **argv)
       {"extract", 1, fsutil_extract},
       {"append", 2, fsutil_append},
 #endif
+      {"hello", 1, hello_world},
       {NULL, 0, NULL},
     };
 
+  if(*argv == NULL){
+  	hello_world();
+  }
+  
   while (*argv != NULL)
     {
       const struct action *a;
