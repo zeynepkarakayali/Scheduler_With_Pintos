@@ -314,6 +314,7 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
+
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -582,3 +583,19 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+// NEWLY ADDED FUNCTION
+/* to compare the wake times of two given threads,
+it's for doing the comparison between two threads
+to put them into the wait_list by order. */
+bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux){
+
+	struct thread *thread1 = list_entry(thread_one, struct thread, elem);
+	struct thread *thread2 = list_entry(thread_two, struct thread, elem);
+	
+	if(thread1->wake_tick < thread2->wake_tick){
+		return true;
+	}
+	else return false;
+}
