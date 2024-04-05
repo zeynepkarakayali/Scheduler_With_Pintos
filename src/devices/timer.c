@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include <kernel/list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -20,6 +21,10 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+// NEW
+// defined a wait_list to prevent busy scheduling
+static struct list wait_list;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -30,11 +35,37 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+
+
+/* NEW FUNCTION
+function to put the thread into the wait_list */
+/*
+void
+thread_sleep (void) 
+{
+  struct thread *cur = thread_current ();
+  enum intr_level old_level;
+  
+  ASSERT (!intr_context ());
+
+  old_level = intr_disable ();
+  if (cur != idle_thread) 
+    list_push_back (&wait_list, &cur->elem);
+  cur->status = THREAD_BLOCKED;
+  schedule ();
+  intr_set_level (old_level);
+}
+*/
+
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
 timer_init (void) 
 {
+
+  list_init(&wait_list); // initialized our wait_list
+  
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -90,10 +121,21 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
+  struct thread* current_thread;
+  enum intr_level previous;
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
+  
+  previous = intr_disable();
+  
+  current_thread = thread_current ();
+  current_thread->wake_tick = start + ticks;
+  
+  list_insert_ordered(&wait_list, &current_thread->elem, compare_wake_tick, NULL);
+  thread_block();
+  intr_set_level(previous);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -170,8 +212,23 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  struct list_elem *first_thread; // newly added
+  struct thread *threadd;  // newly added
   ticks++;
   thread_tick ();
+  
+  // NEW
+  while(!list_empty(&wait_list)){
+  
+  	first_thread = list_front(&wait_list);
+  	threadd = list_entry(first_thread, struct thread, elem);
+  	
+  	if(threadd->wake_tick > ticks) break;
+  	
+  	list_remove(first_thread);
+  	thread_unblock(threadd);
+  	
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
