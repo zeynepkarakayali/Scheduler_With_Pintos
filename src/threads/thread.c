@@ -200,6 +200,12 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  
+  /* after unblocking the thread,if the priority
+  of the thread is higher than the currently running
+  thread we make the thread yield the CPU.
+  */
+  if(t->priority > thread_get_priority()) thread_yield();
 
   return tid;
 }
@@ -237,7 +243,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL); // newly added
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -308,7 +315,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL); // NEWLY ADDED
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -464,6 +472,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->donation_list); // NEWLY ADDED
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -589,12 +598,27 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 /* to compare the wake times of two given threads,
 it's for doing the comparison between two threads
 to put them into the wait_list by order. */
-bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux){
+bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED){
 
 	struct thread *thread1 = list_entry(thread_one, struct thread, elem);
 	struct thread *thread2 = list_entry(thread_two, struct thread, elem);
 	
 	if(thread1->wake_tick < thread2->wake_tick){
+		return true;
+	}
+	else return false;
+}
+
+// NEWLY ADDED FUNCTION
+/* to compare the priorities of two given threads,
+it's for doing the comparison between two threads
+to put them into the ready_list by order in the thread_unblock function. */
+bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED){
+
+	struct thread *thread1 = list_entry(thread_one, struct thread, elem);
+	struct thread *thread2 = list_entry(thread_two, struct thread, elem);
+	
+	if(thread1->priority > thread2->priority){
 		return true;
 	}
 	else return false;

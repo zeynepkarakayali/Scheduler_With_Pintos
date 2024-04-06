@@ -93,6 +93,11 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     
+    // NEWLY ADDED
+    /* to construct a structure where, a thread has a donation list.
+    Is useful for priority donation. */
+    /*static*/ struct list donation_list; 
+    
     // NEWLY DEFINED
     int64_t wake_tick;
 
@@ -142,6 +147,10 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 // NEWLY ADDED FUNCTION
-bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux);
+bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
+
+// NEWLY ADDED FUNCTION
+// to compare the priorities of two given threads
+bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
 
 #endif /* threads/thread.h */
