@@ -341,10 +341,35 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+// changed the original function to make it more compatible
+// for priority donation
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  enum intr_level old_interrupt;
+  old_interrupt = intr_disable();
+  
+  /* in every case the second priority needs to be set to the
+  new priority, because it will be useful for the donation. */
+  thread_current ()->priority2 = new_priority; 
+  
+  if(list_empty(&thread_current()->donation_list) || thread_current()->priority < new_priority){
+      thread_current()->priority = new_priority;
+  }
+  // gerekli mi?
+  /*else{ // if?
+      
+  } */
+  
+  /* if there is a thread to switch to, which has higher 
+  priority than us, we yield the CPU to the thread */
+  if(!list_empty(&ready_list)){
+      struct thread *head = list_entry(list_front(&ready_list), struct thread, elem);
+      
+      if(head->priority > thread_current()->priority) thread_yield();
+  }
+  
+  intr_set_level(old_interrupt);
 }
 
 /* Returns the current thread's priority. */

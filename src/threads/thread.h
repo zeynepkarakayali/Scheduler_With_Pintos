@@ -99,6 +99,8 @@ struct thread
     /*static */struct list donation_list; 
     struct list_elem donationelem; // NEWLY ADDED, donation list's element, like a node?
     
+    int priority2; // for priority donation
+    
     // NEWLY DEFINED
     int64_t wake_tick;
 
