@@ -95,8 +95,9 @@ struct thread
     
     // NEWLY ADDED
     /* to construct a structure where, a thread has a donation list.
-    Is useful for priority donation. */
-    /*static*/ struct list donation_list; 
+    Is useful for priority donation. */ 
+    /*static */struct list donation_list; 
+    struct list_elem donationelem; // NEWLY ADDED, donation list's element, like a node?
     
     // NEWLY DEFINED
     int64_t wake_tick;

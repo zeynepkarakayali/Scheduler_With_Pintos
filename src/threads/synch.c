@@ -205,10 +205,35 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   
+  enum intr_level interrupt_old;
+  interrupt_old = intr_disable();
+  
   //if(!lock_try_acquire(lock))
+  
+  /* if this lock is not in possession of another thread*/
+  if(lock->holder == NULL){
+  	lock->holder = thread_current(); //BAKKKK YANLİS OLABİLİR
+  }
+  else{
+  	//list_insert_ordered(&lock->holder->donation_list, ...)
+  	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
+  	
+  	struct thread *current_thread = thread_current();
+  	
+  	/* priority of the thread who tries to obtain the lock is greater than
+  	the priority of the thread who is holding the lock, then we need to make 
+  	the lock holder thread inherit the priority of the current thread.
+  	*/
+  	if(current_thread->priority > lock->holder->priority){
+  	    lock->holder->priority = current_thread->priority; //thread_get_priority de olurdu belki?
+  	    
+  	}
+  }
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  
+  intr_set_level(interrupt_old);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -228,6 +253,20 @@ lock_try_acquire (struct lock *lock)
   success = sema_try_down (&lock->semaphore);
   if (success)
     lock->holder = thread_current ();
+    
+  //else
+  /*eger locku alamazsa, ve prioritysi daha buyukse o zaman
+  locka sahip olan threadin prioritysi yükseltilir ---> lock_acquire'da
+  
+  locku alamadiysam, locku tutan threadin donation listine girerim ve bloklanırım?
+  */
+  else{
+  	//list_insert_ordered(&lock->holder->donation_list, ...)
+  	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
+  	thread_block(); // hic emin degilim
+  	//lock_acquire(lock);
+  }
+  
   return success;
 }
 
