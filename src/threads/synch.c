@@ -327,6 +327,27 @@ cond_init (struct condition *cond)
   list_init (&cond->waiters);
 }
 
+/*Compare function for waiters list in semaphore_elem*/
+   
+   static bool
+cond_waiters_compare (const struct list_elem *a,
+                      const struct list_elem *b, void *aux UNUSED)
+{
+  struct semaphore_elem *sa, *sb;
+  struct thread *ta, *tb;
+
+  sa = list_entry (a, struct semaphore_elem, elem);
+  sb = list_entry (b, struct semaphore_elem, elem);
+
+  ASSERT (!list_empty(&sa->semaphore.waiters));
+  ASSERT (!list_empty(&sb->semaphore.waiters));
+
+  ta = list_entry (list_front (&sa->semaphore.waiters), struct thread, elem);
+  tb = list_entry (list_front (&sb->semaphore.waiters), struct thread, elem);
+
+  return ta->priority > tb->priority ;
+}
+
 /* Atomically releases LOCK and waits for COND to be signaled by
    some other piece of code.  After COND is signaled, LOCK is
    reacquired before returning.  LOCK must be held before calling
@@ -347,6 +368,7 @@ cond_init (struct condition *cond)
    interrupt handler.  This function may be called with
    interrupts disabled, but interrupts will be turned back on if
    we need to sleep. */
+   
 void
 cond_wait (struct condition *cond, struct lock *lock) 
 {
@@ -359,7 +381,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   //list_push_back (&cond->waiters, &waiter.elem);
-  list_insert_ordered (&cond->waiters, &waiter.elem, compare_priority, NULL); // NEWLY ADDED
+  list_insert_ordered (&cond->waiters, &waiter.elem, cond_waiters_compare, NULL); // NEWLY ADDED
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -381,7 +403,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)){ 
-     list_sort(&cond->waiters, compare_priority, NULL); // NEWLY ADDED
+     list_sort(&cond->waiters, cond_waiters_compare, NULL); // NEWLY ADDED
      sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
   }
 }
