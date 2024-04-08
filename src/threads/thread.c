@@ -171,8 +171,10 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
+  enum intr_level old_interrupt; // NEW
 
   ASSERT (function != NULL);
+  
 
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
@@ -182,6 +184,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  
+  old_interrupt = intr_disable(); // NEWLY ADDED
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -201,12 +205,14 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   
+  intr_set_level(old_interrupt); // NEW
   /* after unblocking the thread,if the priority
   of the thread is higher than the currently running
-  thread we make the thread yield the CPU.
-  */
+  thread we make the thread yield the CPU. */
   if(t->priority > thread_get_priority()) thread_yield();
 
+  intr_set_level(old_interrupt); // NEW
+  
   return tid;
 }
 
@@ -356,10 +362,7 @@ thread_set_priority (int new_priority)
   if(list_empty(&thread_current()->donation_list) || thread_current()->priority < new_priority){
       thread_current()->priority = new_priority;
   }
-  // gerekli mi?
-  /*else{ // if?
-      
-  } */
+  
   
   /* if there is a thread to switch to, which has higher 
   priority than us, we yield the CPU to the thread */
