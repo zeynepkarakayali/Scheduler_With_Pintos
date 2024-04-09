@@ -212,27 +212,21 @@ lock_acquire (struct lock *lock)
   
   /* if this lock is not in possession of another thread*/
   if(lock->holder == NULL){
-  	//lock->holder = thread_current(); //BAKKKK YANLİS OLABİLİR
-  	thread_current()->locking_thread = NULL;
-  	
-        thread_current()->locking_thread = lock->holder;
-        thread_current()->blocking_lock = lock;
+  	lock->holder = thread_current(); //BAKKKK YANLİS OLABİLİR
+  }
+  else{
   	//list_insert_ordered(&lock->holder->donation_list, ...)
-  	// doesn't matter if it's sorted or not, we are going to
-  	// traverse the list in lock_try_acquire no matter what
   	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
   	
   	struct thread *current_thread = thread_current();
-  	//while (!list_empty(&lock->holder->donation_list))
-  	while(current_thread->locking_thread != NULL){
-	  	/* priority of the thread who tries to obtain the lock is greater than
-	  	the priority of the thread who is holding the lock, then we need to make 
-	  	the lock holder thread inherit the priority of the current thread.
-	  	*/
-	  	if(current_thread->priority > lock->holder->priority){
-	  	    lock->holder->priority = current_thread->priority; //thread_get_priority de olurdu belki?
-	  	    current_thread = current_thread->locking_thread;  // for nested donation
-	  	}    
+  	
+  	/* priority of the thread who tries to obtain the lock is greater than
+  	the priority of the thread who is holding the lock, then we need to make 
+  	the lock holder thread inherit the priority of the current thread.
+  	*/
+  	if(current_thread->priority > lock->holder->priority){
+  	    lock->holder->priority = current_thread->priority; //thread_get_priority de olurdu belki?
+  	    
   	}
   }
 
@@ -268,29 +262,21 @@ lock_try_acquire (struct lock *lock)
   locku alamadiysam, locku tutan threadin donation listine girerim ve bloklanırım?
   */
   else{
-  	//struct thread *current_t = thread_current();
-  	
-  	thread_current()->locking_thread = lock->holder;
-  	thread_current()->blocking_lock = lock;
-  	
   	//list_insert_ordered(&lock->holder->donation_list, ...)
   	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
-  	//thread_block(); // hic emin degilim
+  	thread_block(); // hic emin degilim
   	//lock_acquire(lock);
   	
+  	struct thread *current_thread = thread_current();
   	
-  	struct thread *current_t = thread_current();
-  	while(current_t->locking_thread != NULL){
-  	
-	  	/* priority of the thread who tries to obtain the lock is greater than
-	  	the priority of the thread who is holding the lock, then we need to make 
-	  	the lock holder thread inherit the priority of the current thread. 
-	  	Same as lock_acquire()
-	  	*/
-	  	if(current_t->priority > lock->holder->priority){
-	  	    lock->holder->priority = current_t->priority; //thread_get_priority de olurdu belki?
-	  	    current_t = current_t->locking_thread; // to traverse to the core? thread
-	  	}   
+  	/* priority of the thread who tries to obtain the lock is greater than
+  	the priority of the thread who is holding the lock, then we need to make 
+  	the lock holder thread inherit the priority of the current thread. 
+  	Same as lock_acquire()
+  	*/
+  	if(current_thread->priority > lock->holder->priority){
+  	    lock->holder->priority = current_thread->priority; //thread_get_priority de olurdu belki?
+  	    
   	}
   }
   
@@ -307,55 +293,9 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-  
-  enum intr_level old_interrupt = intr_disable();
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
-  
-  
-  //struct thread *current_thread = thread_current();
-  
-  if(list_empty(&thread_current()->donation_list)){
-  	thread_set_priority(thread_current()->priority2);
-  }
-  else{
-  	struct list_elem *temp = list_begin(&thread_current()->donation_list);
-  	while(temp->next != NULL){ //BAKK
-  		struct thread *t = list_entry(temp, struct thread, donationelem);
-  		// if the blocking lock of the current thread is this one,
-  		// and we want to release the lock. It means that we no longer 
-  		// need to keep the thread in the donation list because it is no
-  		// longer restricted by our lock.
-  		if(t->blocking_lock == lock){
-  			list_remove(temp);
-  			t->blocking_lock = NULL;
-  		}
-  		temp = temp->next;
-  	}
-  }
-  
-  // If there are still some thread in the donation list, meaning
-  // the threads that are in the donation list is the threads who aren't
-  // restricted by our lock. They are restricted by another lock?
-  if(!list_empty(&thread_current()->donation_list)){
-  	struct list_elem *donor_max = list_max(&thread_current()->donation_list, compare_priority, NULL);
-  	struct thread *donor_thread = list_entry(donor_max, struct thread, donationelem);
-  	
-  	if(thread_current()->priority2 > donor_thread->priority){
-  		thread_set_priority(thread_current()->priority2);
-  	}
-  	else{
-  		thread_set_priority(donor_thread->priority);
-  		thread_yield();
-  	}
-  }
-  else{
-  	thread_set_priority(thread_current()->priority2);
-  }
-  
-  intr_set_level(old_interrupt);
-  
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -389,7 +329,7 @@ cond_init (struct condition *cond)
 
 /*Compare function for waiters list in semaphore_elem*/
    
-static bool
+   static bool
 cond_waiters_compare (const struct list_elem *a,
                       const struct list_elem *b, void *aux UNUSED)
 {
@@ -440,8 +380,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
-  //list_insert_ordered (&cond->waiters, &waiter.elem, cond_waiters_compare, NULL); // NEWLY ADDED
+  //list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem, cond_waiters_compare, NULL); // NEWLY ADDED
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);

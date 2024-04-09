@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -36,6 +37,9 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+/*Load average of thread, we initialize it as zero in the beginnig*/
+static fixed_point load_average = 0;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -386,31 +390,32 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  enum intr_level old_level =intr_disable();
+  thread_current()->nice=nice;
+  //recompute_priority(thread_current, NULL);
+  
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fxp_to_int_round_nearest(load_average*100);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return fxp_to_int_round_nearest((thread_current()->recent_cpu)*100);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -501,6 +506,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_init(&t->donation_list); // NEWLY ADDED
+  
+  /*if(thread_mlfqs){
+  	if(! strcpy( t->name , "main"))	t->recent_cpu = 0;
+  	else	t->recent_cpu = thread_get_recent_cpu()/100;
+  }*/
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -651,3 +661,13 @@ bool compare_priority(const struct list_elem *thread_one, const struct list_elem
 	}
 	else return false;
 }
+
+//
+
+
+
+
+
+
+
+

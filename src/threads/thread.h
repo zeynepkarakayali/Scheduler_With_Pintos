@@ -105,6 +105,12 @@ struct thread
     
     // NEWLY DEFINED
     int64_t wake_tick;
+    
+    // NEWLY ADDED 
+    int nice; //niceness of thread
+    
+    //NEWLY ADDED
+    int32_t recent_cpu;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -157,5 +163,4 @@ bool compare_wake_tick(const struct list_elem *thread_one, const struct list_ele
 // NEWLY ADDED FUNCTION
 // to compare the priorities of two given threads
 bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
-
 #endif /* threads/thread.h */
