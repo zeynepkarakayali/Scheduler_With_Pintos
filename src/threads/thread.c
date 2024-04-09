@@ -59,8 +59,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
-extern struct list wait_list; // NEWLY ADDED
-
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -173,10 +171,9 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_interrupt; // NEW
-
-  ASSERT (function != NULL);
+  enum intr_level old_interrupt;
   
+  ASSERT (function != NULL);
 
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
@@ -186,8 +183,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  
-  old_interrupt = intr_disable(); // NEWLY ADDED
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -204,17 +199,16 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  old_interrupt = intr_disable();
+  
   /* Add to run queue. */
   thread_unblock (t);
   
-  intr_set_level(old_interrupt); // NEW
-  /* after unblocking the thread,if the priority
-  of the thread is higher than the currently running
-  thread we make the thread yield the CPU. */
-  if(t->priority > thread_current()->priority) thread_yield(); //thread_get_priority de olurdu belki?
+  if(t->priority > thread_current()->priority){
+      thread_yield();
+  }
 
-  intr_set_level(old_interrupt); // NEW
-  
+  intr_set_level(old_interrupt);
   return tid;
 }
 
@@ -253,7 +247,6 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
   list_sort(&ready_list, compare_priority, NULL);
-  //list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL); // newly added
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -326,7 +319,7 @@ thread_yield (void)
   if (cur != idle_thread) {
     list_push_back (&ready_list, &cur->elem);
     list_sort(&ready_list, compare_priority, NULL);
-    //list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL); // NEWLY ADDED
+    //list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL);
   }
   cur->status = THREAD_READY;
   schedule ();
@@ -352,29 +345,26 @@ thread_foreach (thread_action_func *func, void *aux)
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-// changed the original function to make it more compatible
-// for priority donation
 void
 thread_set_priority (int new_priority) 
 {
+  thread_current ()->priority = new_priority;
   enum intr_level old_interrupt;
   old_interrupt = intr_disable();
   
-  /* in every case the second priority needs to be set to the
-  new priority, because it will be useful for the donation. */
-  thread_current ()->priority2 = new_priority; 
-  
-  if(list_empty(&thread_current()->donation_list) || thread_current()->priority < new_priority){
-      thread_current()->priority = new_priority;
+  if(list_empty(&thread_current()->donation_list) || (new_priority > thread_current()->priority)){
+  	thread_current()->priority = new_priority;
+  	thread_current()->priority2 = new_priority;
+  }
+  else{
+  	thread_current()->priority2 = new_priority;
   }
   
-  
-  // if there is a thread to switch to, which has higher 
-  // priority than us, we yield the CPU to the thread 
   if(!list_empty(&ready_list)){
-      struct thread *head = list_entry(list_front(&ready_list), struct thread, elem);
-      
-      if(head->priority > thread_current()->priority) thread_yield();
+  	struct list_elem *head = list_begin(&ready_list);
+  	struct thread *t = list_entry(head, struct thread, elem);
+  	
+  	if(t->priority > thread_current()->priority) thread_yield();
   }
   
   intr_set_level(old_interrupt);
@@ -417,7 +407,7 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -504,11 +494,12 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  t->priority2 = priority; // NEWLY ADDED
-  t->blocking_lock = NULL; // NEWLY ADDED
-  t->locking_thread = NULL; // NEWLY ADDED
   t->magic = THREAD_MAGIC;
-  list_init(&t->donation_list); // NEWLY ADDED
+  
+  t->priority2 = priority;
+  t->locking_thread = NULL;
+  t->blocking_lock = NULL;
+  list_init(&t->donation_list);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -624,7 +615,7 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
@@ -645,17 +636,10 @@ bool compare_wake_tick(const struct list_elem *thread_one, const struct list_ele
 	else return false;
 }
 
-// NEWLY ADDED FUNCTION
-/* to compare the priorities of two given threads,
-it's for doing the comparison between two threads
-to put them into the ready_list by order in the thread_unblock function. */
 bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED){
 
 	struct thread *thread1 = list_entry(thread_one, struct thread, elem);
 	struct thread *thread2 = list_entry(thread_two, struct thread, elem);
 	
-	if(thread1->priority > thread2->priority){
-		return true;
-	}
-	else return false;
+	return (thread1->priority > thread2->priority);
 }

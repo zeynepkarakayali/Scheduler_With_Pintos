@@ -93,18 +93,16 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
     
-    // NEWLY ADDED ----> for priority donation
-    /* to construct a list of priorities where, 
-    a thread has a donation list. */ 
-    struct list donation_list; 
-    struct list_elem donationelem; // NEWLY ADDED, donation list's element, like a node?
-    int priority2; // for priority donation
-    struct lock *blocking_lock; // the blocking lock, that the thread is waiting for
-    struct thread *locking_thread; // the thread who has the blocking_lock
-    
-    
     // NEWLY DEFINED
     int64_t wake_tick;
+    
+    // priority donation
+    int priority2; 
+    struct list_elem donationelem;
+    struct list donation_list;
+    struct thread *locking_thread;
+    struct lock *blocking_lock;
+    
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -154,8 +152,7 @@ int thread_get_load_avg (void);
 // NEWLY ADDED FUNCTION
 bool compare_wake_tick(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
 
-// NEWLY ADDED FUNCTION
-// to compare the priorities of two given threads
+// for priority donation
 bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
 
 #endif /* threads/thread.h */
