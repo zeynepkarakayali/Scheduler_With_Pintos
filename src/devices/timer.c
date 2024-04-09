@@ -23,7 +23,7 @@ static int64_t ticks;
 
 // NEW
 // defined a wait_list to prevent busy scheduling
-static struct list wait_list;
+struct list wait_list;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */

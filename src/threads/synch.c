@@ -71,8 +71,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      //list_push_back (&sema->waiters, &thread_current ()->elem);
-      list_insert_ordered (&sema->waiters, &thread_current()->elem, compare_priority, NULL); // NEWLY ADDED
+      list_push_back (&sema->waiters, &thread_current ()->elem);
+      //list_insert_ordered (&sema->waiters, &thread_current()->elem, compare_priority, NULL); // NEWLY ADDED
       thread_block ();
     }
   
@@ -221,11 +221,13 @@ lock_acquire (struct lock *lock)
   }
   else{
   	thread_current()->locking_thread = lock->holder;
-        thread_current()->blocking_lock = lock;
+        
   	//list_insert_ordered(&lock->holder->donation_list, ...)
   	// doesn't matter if it's sorted or not, we are going to
   	// traverse the list in lock_try_acquire no matter what
   	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
+  	
+  	thread_current()->blocking_lock = lock;
   	
   	struct thread *current_thread = thread_current();
   	//while (!list_empty(&lock->holder->donation_list))
@@ -273,15 +275,14 @@ lock_try_acquire (struct lock *lock)
   locku alamadiysam, locku tutan threadin donation listine girerim ve bloklanırım?
   */
   else{
-  	//struct thread *current_t = thread_current();
-  	
   	thread_current()->locking_thread = lock->holder;
-  	thread_current()->blocking_lock = lock;
   	
   	//list_insert_ordered(&lock->holder->donation_list, ...)
   	list_push_front(&lock->holder->donation_list, &thread_current()->donationelem);
   	//thread_block(); // hic emin degilim
   	//lock_acquire(lock);
+  	
+  	thread_current()->blocking_lock = lock;
   	
   	
   	struct thread *current_t = thread_current();
@@ -292,8 +293,8 @@ lock_try_acquire (struct lock *lock)
 	  	the lock holder thread inherit the priority of the current thread. 
 	  	Same as lock_acquire()
 	  	*/
-	  	if(current_t->priority > lock->holder->priority){
-	  	    lock->holder->priority = current_t->priority; //thread_get_priority de olurdu belki?
+	  	if(current_t->priority > current_t->locking_thread->priority){
+	  	    current_t->locking_thread->priority = current_t->priority; //thread_get_priority de olurdu belki?
 	  	    current_t = current_t->locking_thread; // to traverse to the core? thread
 	  	}   
   	}
@@ -318,7 +319,6 @@ lock_release (struct lock *lock)
   lock->holder = NULL;
   sema_up (&lock->semaphore);
   
-  
   //struct thread *current_thread = thread_current();
   
   if(list_empty(&thread_current()->donation_list)){
@@ -328,7 +328,7 @@ lock_release (struct lock *lock)
   	struct list_elem *temp = list_begin(&thread_current()->donation_list);
   	while(temp != list_end(&thread_current()->donation_list)){ //BAKK
   		struct thread *t = list_entry(temp, struct thread, donationelem);
-  		// if the blocking lock of the current thread is this one,
+  		// if the blocking lock of the cur rent thread is this one,
   		// and we want to release the lock. It means that we no longer 
   		// need to keep the thread in the donation list because it is no
   		// longer restricted by our lock.
@@ -352,12 +352,12 @@ lock_release (struct lock *lock)
   		thread_set_priority(thread_current()->priority2);
   	}
   	else{
-  		thread_set_priority(donor_thread->priority);
+  		thread_current()->priority = donor_thread->priority; // BAKK
   		thread_yield();
   	}
   }
   else{
-  	thread_set_priority(thread_current()->priority2);
+  	thread_set_priority(thread_current()->priority2); // BAKK
   }
   
   intr_set_level(old_interrupt);
@@ -448,7 +448,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   if (!list_empty (&cond->waiters)){ 
-     list_sort(&cond->waiters, (list_less_func *) &cond_waiters_compare, NULL); // NEWLY ADDED
+     list_sort(&cond->waiters, cond_waiters_compare, NULL); // NEWLY ADDED
      sema_up (&list_entry (list_pop_front (&cond->waiters), struct semaphore_elem, elem)->semaphore);
   }
 }
