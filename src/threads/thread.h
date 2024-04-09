@@ -96,7 +96,7 @@ struct thread
     // NEWLY ADDED ----> for priority donation
     /* to construct a list of priorities where, 
     a thread has a donation list. */ 
-    /*static */struct list donation_list; 
+    struct list donation_list; 
     struct list_elem donationelem; // NEWLY ADDED, donation list's element, like a node?
     int priority2; // for priority donation
     struct lock *blocking_lock; // the blocking lock, that the thread is waiting for

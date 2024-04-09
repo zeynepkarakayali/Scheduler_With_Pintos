@@ -59,6 +59,8 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+extern struct list wait_list; // NEWLY ADDED
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -209,7 +211,7 @@ thread_create (const char *name, int priority,
   /* after unblocking the thread,if the priority
   of the thread is higher than the currently running
   thread we make the thread yield the CPU. */
-  if(t->priority > thread_get_priority()) thread_yield();
+  if(t->priority > thread_current()->priority) thread_yield(); //thread_get_priority de olurdu belki?
 
   intr_set_level(old_interrupt); // NEW
   
@@ -249,8 +251,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL); // newly added
+  list_push_back (&ready_list, &t->elem);
+  list_sort(&ready_list, compare_priority, NULL);
+  //list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL); // newly added
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -320,9 +323,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    //list_push_back (&ready_list, &cur->elem);
-    list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL); // NEWLY ADDED
+  if (cur != idle_thread) {
+    list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, compare_priority, NULL);
+    //list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL); // NEWLY ADDED
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -364,8 +369,8 @@ thread_set_priority (int new_priority)
   }
   
   
-  /* if there is a thread to switch to, which has higher 
-  priority than us, we yield the CPU to the thread */
+  // if there is a thread to switch to, which has higher 
+  // priority than us, we yield the CPU to the thread 
   if(!list_empty(&ready_list)){
       struct thread *head = list_entry(list_front(&ready_list), struct thread, elem);
       
@@ -461,7 +466,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void) 
@@ -499,6 +504,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->priority2 = priority; // NEWLY ADDED
+  t->blocking_lock = NULL; // NEWLY ADDED
+  t->locking_thread = NULL; // NEWLY ADDED
   t->magic = THREAD_MAGIC;
   list_init(&t->donation_list); // NEWLY ADDED
 
