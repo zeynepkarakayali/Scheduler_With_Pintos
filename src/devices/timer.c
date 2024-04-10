@@ -121,21 +121,23 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-  struct thread* current_thread;
-  enum intr_level previous;
 
   ASSERT (intr_get_level () == INTR_ON);
   // while (timer_elapsed (start) < ticks) 
   //   thread_yield ();
   
-  previous = intr_disable();
-  
-  current_thread = thread_current ();
-  current_thread->wake_tick = start + ticks;
-  
-  list_insert_ordered(&wait_list, &current_thread->elem, compare_wake_tick, NULL);
-  thread_block();
-  intr_set_level(previous);
+  if(ticks > 0){
+	  struct thread* current_thread;
+	  enum intr_level previous;
+	  previous = intr_disable();
+	  
+	  current_thread = thread_current ();
+	  current_thread->wake_tick = start + ticks;
+	  
+	  list_insert_ordered(&wait_list, &current_thread->elem, compare_wake_tick, NULL);
+	  thread_block();
+	  intr_set_level(previous);
+  }
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

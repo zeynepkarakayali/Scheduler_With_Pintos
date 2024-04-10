@@ -275,6 +275,7 @@ lock_try_acquire (struct lock *lock)
   locku alamadiysam, locku tutan threadin donation listine girerim ve bloklanırım?
   */
   else{
+  /*
   	thread_current()->locking_thread = lock->holder;
   	
   	//list_insert_ordered(&lock->holder->donation_list, ...)
@@ -288,16 +289,17 @@ lock_try_acquire (struct lock *lock)
   	struct thread *current_t = thread_current();
   	while(current_t->locking_thread != NULL){
   	
-	  	/* priority of the thread who tries to obtain the lock is greater than
-	  	the priority of the thread who is holding the lock, then we need to make 
-	  	the lock holder thread inherit the priority of the current thread. 
-	  	Same as lock_acquire()
-	  	*/
+	  	// priority of the thread who tries to obtain the lock is greater than
+	  	// the priority of the thread who is holding the lock, then we need to make 
+	  	// the lock holder thread inherit the priority of the current thread. 
+	  	// Same as lock_acquire()
 	  	if(current_t->priority > current_t->locking_thread->priority){
 	  	    current_t->locking_thread->priority = current_t->priority; //thread_get_priority de olurdu belki?
 	  	    current_t = current_t->locking_thread; // to traverse to the core? thread
 	  	}   
   	}
+  	*/
+  	lock_acquire(lock);
   }
   
   return success;
