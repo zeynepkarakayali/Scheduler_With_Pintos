@@ -211,6 +211,7 @@ lock_acquire (struct lock *lock)
   //if(!lock_try_acquire(lock))
   
   /* if this lock is not in possession of another thread*/
+  if(!thread_mlfqs){
   if(lock->holder == NULL){
   	lock->holder = thread_current(); //BAKKKK YANLİS OLABİLİR
   }
@@ -228,7 +229,9 @@ lock_acquire (struct lock *lock)
   	    lock->holder->priority = current_thread->priority; //thread_get_priority de olurdu belki?
   	    
   	}
+  	}
   }
+
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();

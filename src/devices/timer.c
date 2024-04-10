@@ -212,14 +212,28 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *first_thread; // newly added
-  struct thread *threadd;  // newly added
+  enum intr_level old_level = intr_disable();
   ticks++;
   thread_tick ();
   
   // NEW
-  while(!list_empty(&wait_list)){
   
+  
+  if(thread_mlfqs)
+  {
+  	if( ticks % TIMER_FREQ ==0){
+  		thread_calculate_load_average();
+  		recompute_recent_cpu_of_all();
+  	}
+  	if (ticks % 4 == 0) {
+      		thread_calculate_priority_for_all ();
+    }
+  }
+  
+  ///
+  while(!list_empty(&wait_list)){
+  	struct list_elem *first_thread; // newly added
+  	struct thread *threadd;  // newly added
   	first_thread = list_front(&wait_list);
   	threadd = list_entry(first_thread, struct thread, elem);
   	
@@ -227,9 +241,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
   	
   	list_remove(first_thread);
   	thread_unblock(threadd);
-  	
   }
+
+  intr_set_level(old_level);
 }
+
+
+
+ 
+
+  
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

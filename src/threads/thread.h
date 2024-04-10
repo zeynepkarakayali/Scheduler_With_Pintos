@@ -163,4 +163,18 @@ bool compare_wake_tick(const struct list_elem *thread_one, const struct list_ele
 // NEWLY ADDED FUNCTION
 // to compare the priorities of two given threads
 bool compare_priority(const struct list_elem *thread_one, const struct list_elem *thread_two, void *aux UNUSED);
+
+// NEWLY ADDED FUNCTION
+void thread_calculate_recent_cpu(struct thread *t, void * aux UNUSED);
+void recompute_recent_cpu_of_all(void);
+
+// NEWLY ADDED FUNCTION
+void thread_calculate_load_average(void);
+
+void thread_calculate_priority (struct thread *t, void * aux UNUSED);
+void thread_calculate_priority_for_all (void);
+
+
+
+
 #endif /* threads/thread.h */
