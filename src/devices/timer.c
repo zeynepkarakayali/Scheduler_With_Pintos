@@ -120,25 +120,23 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
   // while (timer_elapsed (start) < ticks) 
   //   thread_yield ();
-  
-  if(ticks > 0){
+
 	  struct thread* current_thread;
 	  enum intr_level previous;
 	  previous = intr_disable();
 	  
 	  current_thread = thread_current ();
-	  current_thread->wake_tick = start + ticks;
+	  current_thread->wake_tick = timer_ticks() + ticks;
 	  
 	  list_insert_ordered(&wait_list, &current_thread->elem, compare_wake_tick, NULL);
 	  thread_block();
 	  intr_set_level(previous);
-  }
 }
+
+
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
@@ -210,18 +208,33 @@ timer_print_stats (void)
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *first_thread; // newly added
-  struct thread *threadd;  // newly added
+  enum intr_level old_level = intr_disable();
   ticks++;
   thread_tick ();
   
   // NEW
-  while(!list_empty(&wait_list)){
   
+  
+  if(thread_mlfqs)
+  {
+  	if( ticks % TIMER_FREQ ==0){
+  		thread_calculate_load_average();
+  		recompute_recent_cpu_of_all();
+  	}
+  	if (ticks % 4 == 0) {
+      		thread_calculate_priority_for_all ();
+    }
+  }
+  
+  ///
+  while(!list_empty(&wait_list)){
+  	struct list_elem *first_thread; // newly added
+  	struct thread *threadd;  // newly added
   	first_thread = list_front(&wait_list);
   	threadd = list_entry(first_thread, struct thread, elem);
   	
@@ -229,9 +242,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
   	
   	list_remove(first_thread);
   	thread_unblock(threadd);
-  	
   }
+
+  intr_set_level(old_level);
 }
+
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */

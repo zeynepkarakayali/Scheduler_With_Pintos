@@ -33,7 +33,7 @@
 #include "threads/thread.h"
 
 bool
-cond_waiters_compare (const struct list_elem *a, const struct list_elem *b, void *aux);
+cond_waiters_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -214,6 +214,7 @@ lock_acquire (struct lock *lock)
   
   //if(!lock_try_acquire(lock))
   
+  if(!thread_mlfqs){
   /* if this lock is not in possession of another thread*/
   if(lock->holder == NULL){
   	//lock->holder = thread_current(); //BAKKKK YANLİS OLABİLİR
@@ -241,6 +242,7 @@ lock_acquire (struct lock *lock)
 	  	    current_thread = current_thread->locking_thread;  // for nested donation
 	  	}    
   	}
+  }
   }
 
   sema_down (&lock->semaphore);
@@ -323,6 +325,7 @@ lock_release (struct lock *lock)
   
   //struct thread *current_thread = thread_current();
   
+  if(!thread_mlfqs){
   if(list_empty(&thread_current()->donation_list)){
   	thread_set_priority(thread_current()->priority2);
   }
@@ -361,7 +364,7 @@ lock_release (struct lock *lock)
   else{
   	thread_set_priority(thread_current()->priority2); // BAKK
   }
-  
+  }
   intr_set_level(old_interrupt);
   
 }
@@ -474,7 +477,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 /*Compare function for waiters list in semaphore_elem*/
    
 bool
-cond_waiters_compare (const struct list_elem *a, const struct list_elem *b, void *aux)
+cond_waiters_compare (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct semaphore_elem *sa, *sb;
   struct thread *ta, *tb;
